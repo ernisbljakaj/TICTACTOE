@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe vs KI</title>
+    <style>
+        /* ===== CSS ===== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            color: #777;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+
+        .status {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+            color: #555;
+            font-weight: 600;
+            min-height: 40px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            margin: 0 auto 30px;
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 10px;
+            font-size: 3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cell:hover:not(.taken) {
+            background: #e0e0e0;
+            transform: scale(1.05);
+        }
+
+        .cell.x {
+            color: #667eea;
+        }
+
+        .cell.o {
+            color: #764ba2;
+        }
+
+        .cell.taken {
+            cursor: not-allowed;
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-reset:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .winner {
+            color: #27ae60;
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        @media (max-width: 400px) {
+            .board {
+                grid-template-columns: repeat(3, 80px);
+                grid-template-rows: repeat(3, 80px);
+            }
+
+            .cell {
+                width: 80px;
+                height: 80px;
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ===== HTML-Struktur ===== -->
+    <div class="container">
+        <h1>Tic Tac Toe</h1>
+        <p class="subtitle">Du (X) vs KI (O) – Unschlagbare KI</p>
+        <div class="status" id="status">Du bist dran!</div>
+        <div class="board" id="board">
+            <button class="cell" data-index="0"></button>
+            <button class="cell" data-index="1"></button>
+            <button class="cell" data-index="2"></button>
+            <button class="cell" data-index="3"></button>
+            <button class="cell" data-index="4"></button>
+            <button class="cell" data-index="5"></button>
+            <button class="cell" data-index="6"></button>
+            <button class="cell" data-index="7"></button>
+            <button class="cell" data-index="8"></button>
+        </div>
+        <button class="btn-reset" id="resetBtn">Neues Spiel</button>
+    </div>
+
+    <script>
+        // ===== JavaScript-Logik mit Minimax-KI =====
+        const statusDisplay = document.getElementById('status');
+        const board = document.getElementById('board');
+        const cells = document.querySelectorAll('.cell');
+        const resetBtn = document.getElementById('resetBtn');
+
+        const HUMAN = 'X';
+        const AI = 'O';
+        let gameState = ['', '', '', '', '', '', '', '', ''];
+        let gameActive = true;
+
+        const winningConditions = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Reihen
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Spalten
+            [0, 4, 8], [2, 4, 6]             // Diagonalen
+        ];
+
+        // Prüfen, ob jemand gewonnen hat
+        function checkWinner(boardState) {
+            for (let condition of winningConditions) {
+                const [a, b, c] = condition;
+                if (
+                    boardState[a] &&
+                    boardState[a] === boardState[b] &&
+                    boardState[a] === boardState[c]
+                ) {
+                    return boardState[a];
+                }
+            }
+            if (!boardState.includes('')) {
+                return 'draw';
+            }
+            return null;
+        }
+
+        // Minimax-Algorithmus – macht die KI unschlagbar [31][32][34][36][38]
+        function minimax(boardState, depth, isMaximizing) {
+            const result = checkWinner(boardState);
+
+            // Basisfälle: Spiel beendet
+            if (result === AI) return 10 - depth;
+            if (result === HUMAN) return depth - 10;
+            if (result === 'draw') return 0;
+
+            if (isMaximizing) {
+                // KI (O) will maximieren
+                let bestScore = -Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (boardState[i] === '') {
+                        boardState[i] = AI;
+                        const score = minimax(boardState, depth + 1, false);
+                        boardState[i] = '';
+                        bestScore = Math.max(score, bestScore);
+                    }
+                }
+                return bestScore;
+            } else {
+                // Mensch (X) will minimieren
+                let bestScore = Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (boardState[i] === '') {
+                        boardState[i] = HUMAN;
+                        const score = minimax(boardState, depth + 1, true);
+                        boardState[i] = '';
+                        bestScore = Math.min(score, bestScore);
+                    }
+                }
+                return bestScore;
+            }
+        }
+
+        // Bester Zug für die KI finden
+        function getBestMove() {
+            let bestScore = -Infinity;
+            let bestMove = -1;
+
+            for (let i = 0; i < 9; i++) {
+                if (gameState[i] === '') {
+                    gameState[i] = AI;
+                    const score = minimax(gameState, 0, false);
+                    gameState[i] = '';
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMove = i;
+                    }
+                }
+            }
+            return bestMove;
+        }
+
+        // Zug auf dem Board ausführen
+        function makeMove(index, player) {
+            gameState[index] = player;
+            const cell = cells[index];
+            cell.textContent = player;
+            cell.classList.add(player.toLowerCase(), 'taken');
+        }
+
+        // Nach jedem Zug Ergebnis prüfen
+        function checkResult() {
+            const result = checkWinner(gameState);
+
+            if (result === HUMAN) {
+                statusDisplay.textContent = '🎉 Du hast gewonnen!';
+                statusDisplay.classList.add('winner');
+                gameActive = false;
+            } else if (result === AI) {
+                statusDisplay.textContent = '🤖 KI hat gewonnen!';
+                statusDisplay.classList.add('winner');
+                gameActive = false;
+            } else if (result === 'draw') {
+                statusDisplay.textContent = '🤝 Unentschieden!';
+                gameActive = false;
+            }
+        }
+
+        // Menschlicher Zug
+        function handleCellClick(event) {
+            const clickedCell = event.target;
+            const index = parseInt(clickedCell.getAttribute('data-index'));
+
+            if (gameState[index] !== '' || !gameActive) return;
+
+            // Mensch macht Zug
+            makeMove(index, HUMAN);
+            checkResult();
+
+            if (!gameActive) return;
+
+            // KI-Zug mit kurzer Verzögerung für natürlicheres Gefühl
+            statusDisplay.textContent = 'KI denkt nach...';
+            setTimeout(() => {
+                const bestMove = getBestMove();
+                if (bestMove !== -1) {
+                    makeMove(bestMove, AI);
+                    checkResult();
+                    if (gameActive) {
+                        statusDisplay.textContent = 'Du bist dran!';
+                    }
+                }
+            }, 500);
+        }
+
+        // Spiel zurücksetzen
+        function resetGame() {
+            gameState = ['', '', '', '', '', '', '', '', ''];
+            gameActive = true;
+            statusDisplay.textContent = 'Du bist dran!';
+            statusDisplay.classList.remove('winner');
+
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('x', 'o', 'taken');
+            });
+        }
+
+        // Event-Listener
+        cells.forEach(cell => {
+            cell.addEventListener('click', handleCellClick);
+        });
+
+        resetBtn.addEventListener('click', resetGame);
+    </script>
+</body>
+
+</html>
